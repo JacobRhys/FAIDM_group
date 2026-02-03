@@ -207,11 +207,7 @@ class ModelWrapper:
 
     def get_student_risk(self, student_id):
         if self.student_df is None:
-            # Lazy load full dataset if not present
-            master_path = os.path.join(settings.BASE_DIR.parent, 'data', 'students_cleaned_with_id_updated.csv')
-            if os.path.exists(master_path):
-                self.student_df = pd.read_csv(master_path, skipinitialspace=True)
-                self.student_df.columns = [c.strip() for c in self.student_df.columns]
+            return {'error': 'No CSV data uploaded. Please upload a CSV file first to search for students.'}
                 
         if self.student_df is None: return {'error': 'No dataset available.'}
         
