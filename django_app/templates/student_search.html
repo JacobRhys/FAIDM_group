@@ -97,9 +97,6 @@
                                     Prob.</span>
                             </div>
                         </div>
-                        <p class="text-sm text-center text-slate-400 max-w-[200px]">
-                            AI prediction based on historical patterns and current behavioral markers.
-                        </p>
                     </div>
 
                     <!-- Comparison Bars -->
@@ -116,34 +113,35 @@
                         <div class="space-y-3">
                             <div class="flex justify-between items-end">
                                 <p class="text-sm font-medium text-slate-300">Digital Engagement (Clicks)</p>
-                                <p class="text-xs text-slate-500">Avg: {{ result.avg_clicks }}</p>
+                                <p class="text-xs text-slate-500">Max: {{ result.max_clicks }}</p>
                             </div>
                             <div
                                 class="relative h-4 bg-slate-800/50 rounded-full overflow-hidden border border-white/5">
                                 <!-- Average Marker -->
-                                <div class="absolute top-0 bottom-0 left-[50%] w-0.5 bg-slate-600 z-10"></div>
+                                <div class="absolute top-0 bottom-0 w-0.5 bg-slate-400 z-10 shadow-[0_0_8px_rgba(255,255,255,0.5)]" style="left: {{ result.avg_clicks_pos }}%"></div>
                                 <!-- Student Progress -->
                                 <div class="h-full bg-gradient-to-r from-purple-600 to-blue-500 rounded-full transition-all duration-1000"
-                                    style="width: {% widthratio result.clicks result.avg_clicks 50 %}%"></div>
+                                    style="width: {{ result.clicks_width }}%"></div>
                             </div>
-                            <p class="text-xl font-bold text-white">{{ result.clicks }} <span
-                                    class="text-xs text-slate-500 font-normal ml-1">Total Interactions</span></p>
+                            <p class="text-xl font-bold text-white">{{ result.clicks_label }} <span class="text-brand-400 text-sm ml-2">({{ result.clicks }} Clicks)</span></p>
+                            <p class="text-xs text-slate-500 font-normal">Relative Engagement (Avg: {{ result.avg_clicks }})</p>
                         </div>
 
                         <!-- Credits Comparison -->
                         <div class="space-y-3">
                             <div class="flex justify-between items-end">
                                 <p class="text-sm font-medium text-slate-300">Course Load (Credits)</p>
-                                <p class="text-xs text-slate-500">Avg: {{ result.avg_credits }}</p>
+                                <p class="text-xs text-slate-500">Max: {{ result.max_credits }}</p>
                             </div>
                             <div
                                 class="relative h-4 bg-slate-800/50 rounded-full overflow-hidden border border-white/5">
-                                <div class="absolute top-0 bottom-0 left-[50%] w-0.5 bg-slate-600 z-10"></div>
+                                <!-- Average Marker -->
+                                <div class="absolute top-0 bottom-0 w-0.5 bg-slate-400 z-10 shadow-[0_0_8px_rgba(255,255,255,0.5)]" style="left: {{ result.avg_credits_pos }}%"></div>
                                 <div class="h-full bg-gradient-to-r from-emerald-600 to-teal-500 rounded-full transition-all duration-1000"
-                                    style="width: {% widthratio result.credits result.avg_credits 50 %}%"></div>
+                                    style="width: {{ result.credits_width }}%"></div>
                             </div>
-                            <p class="text-xl font-bold text-white">{{ result.credits }} <span
-                                    class="text-xs text-slate-500 font-normal ml-1">Studied Credits</span></p>
+                            <p class="text-xl font-bold text-white">{{ result.credits_label }} <span class="text-emerald-400 text-sm ml-2">({{ result.credits }} Credits)</span></p>
+                            <p class="text-xs text-slate-500 font-normal">Course Load (Avg: {{ result.avg_credits }})</p>
                         </div>
                     </div>
                 </div>
@@ -160,7 +158,7 @@
                     </div>
                     <div class="bg-white/5 p-5 rounded-2xl border border-white/5 hover:bg-white/10 transition-colors">
                         <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Education</p>
-                        <p class="text-sm font-semibold text-white line-clamp-1">{{ result.education }}</p>
+                        <p class="text-sm font-semibold text-white">{{ result.education }}</p>
                     </div>
                     <div class="bg-white/5 p-5 rounded-2xl border border-white/5 hover:bg-white/10 transition-colors">
                         <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">IMD Band</p>
@@ -186,14 +184,11 @@
                             <span class="text-white font-semibold">Priority:</span>
                             {% if result.risk_level == 'High' %}
                             This student exhibits significant risk markers, particularly in the
-                            <span class="text-rose-400 font-bold underline decoration-rose-500/30">{{ result.category
-                                }}</span>
+                            <span class="text-rose-400 font-bold underline decoration-rose-500/30">{{ result.category }}</span>
                             behavioral area. Targeted outreach should be initiated within 48 hours.
                             {% else %}
                             This student is performing within stable parameters. No immediate intervention is required,
-                            though continued monitoring of their <span
-                                class="text-emerald-400 font-bold uppercase tracking-widest text-[10px]">{{
-                                result.category }}</span>
+                            though continued monitoring of their <span class="text-emerald-400 font-bold uppercase tracking-widest text-[10px]">{{ result.category }}</span>
                             trajectory is recommended.
                             {% endif %}
                         </p>

@@ -5,6 +5,23 @@ import os
 from django.conf import settings
 from sklearn.metrics import accuracy_score, f1_score
 
+def get_credits_label(val):
+    try:
+        v = float(val)
+        if v < 60: return "Below Average"
+        if v <= 120: return "Standard"
+        return "Above Average"
+    except: return str(val)
+
+def get_interactions_label(val):
+    try:
+        v = float(val)
+        if v < -0.5: return "Minimal"
+        if v < 0.1: return "Average"
+        if v < 1.5: return "High"
+        return "Very High"
+    except: return str(val)
+
 class ModelWrapper:
     _instance = None
     
@@ -30,11 +47,11 @@ class ModelWrapper:
             self.student_df = None
             self.feature_names = None
             try:
-                master_path = os.path.join(settings.BASE_DIR.parent, 'students_cleaned_with_id.csv')
+                master_path = os.path.join(settings.BASE_DIR.parent, 'data', 'students_cleaned_with_id_updated.csv')
                 if os.path.exists(master_path):
-                    master_df = pd.read_csv(master_path, nrows=1, skipinitialspace=True) # Added skipinitialspace
+                    master_df = pd.read_csv(master_path, nrows=1, skipinitialspace=True)
                     master_df.columns = [c.strip() for c in master_df.columns]
-                    drop_cols = ['final_result', 'date_unregistration']
+                    drop_cols = ['final_result', 'date_unregistration', 'studied_credits_original', 'total_click_count_original']
                     self.feature_names = [c for c in master_df.columns if c not in drop_cols]
             except Exception as fe:
                 print(f"Warning: Could not detect feature names: {fe}")
@@ -159,8 +176,8 @@ class ModelWrapper:
             def format_row(row):
                 return {
                     'id_student': int(row['id_student']) if 'id_student' in row and pd.notna(row['id_student']) else 'N/A',
-                    'risk_score': round(float(row['risk_score']), 4),
-                    'studied_credits': int(row['studied_credits']) if 'studied_credits' in row and pd.notna(row['studied_credits']) else 0,
+                    'risk_score': round(float(row['risk_score']) * 100, 1),
+                    'studied_credits': get_credits_label(row.get('studied_credits_original', row.get('studied_credits', 0))),
                     'disability': 'Yes' if 'disability' in row and pd.notna(row['disability']) and row['disability'] == 1 else 'No',
                     'category': row.get('category', 'Unclassified')
                 }
@@ -189,6 +206,13 @@ class ModelWrapper:
         except Exception as e: return {'error': str(e)}
 
     def get_student_risk(self, student_id):
+        if self.student_df is None:
+            # Lazy load full dataset if not present
+            master_path = os.path.join(settings.BASE_DIR.parent, 'data', 'students_cleaned_with_id_updated.csv')
+            if os.path.exists(master_path):
+                self.student_df = pd.read_csv(master_path, skipinitialspace=True)
+                self.student_df.columns = [c.strip() for c in self.student_df.columns]
+                
         if self.student_df is None: return {'error': 'No dataset available.'}
         
         # Ensure student_id is int for matching
@@ -222,24 +246,85 @@ class ModelWrapper:
                 else: category = 'Disengaged'
             except: pass
 
-            # Calculate Averages for Comparison
-            avg_clicks = self.student_df[interaction_col].mean()
-            avg_credits = self.student_df['studied_credits'].mean()
+            # Calculate Metrics for Comparison
+            avg_clicks = self.student_df['total_click_count_original'].mean() if 'total_click_count_original' in self.student_df.columns else self.student_df[interaction_col].mean()
+            avg_credits = self.student_df['studied_credits_original'].mean() if 'studied_credits_original' in self.student_df.columns else self.student_df['studied_credits'].mean()
+            
+            max_clicks = self.student_df['total_click_count_original'].max() if 'total_click_count_original' in self.student_df.columns else self.student_df[interaction_col].max()
+            max_credits = self.student_df['studied_credits_original'].max() if 'studied_credits_original' in self.student_df.columns else self.student_df['studied_credits'].max()
+
+            # Positions for markers (Relative to Max)
+            avg_clicks_pos = (avg_clicks / max_clicks * 100) if max_clicks > 0 else 0
+            avg_credits_pos = (avg_credits / max_credits * 100) if max_credits > 0 else 0
+
+            # --- Mapping Technical Values to Human Labels ---
+            def get_gender_label(val):
+                try:
+                    v = float(val)
+                    if abs(v - 0) < 0.01: return "Female"
+                    if abs(v - 1) < 0.01: return "Male"
+                    return f"Other ({val})"
+                except: return str(val)
+
+            def get_age_label(val):
+                try:
+                    v = float(val)
+                    # Scaled values for 0-35, 35-55, 55+
+                    if v < 0: return "0-35"
+                    if v < 1.7: return "35-55"
+                    return "55+"
+                except: return str(val)
+
+            def get_edu_label(val):
+                try:
+                    v = float(val)
+                    # Scaled values: -2.32 (No Formal), -0.98 (Lower Than A), 0.34 (A Level), 1.68 (HE), 3.01 (Post Grad)
+                    if v < -1.5: return "No Formal Quals"
+                    if v < -0.3: return "Lower Than A Level"
+                    if v < 1.0: return "A Level or Equivalent"
+                    if v < 2.3: return "HE Qualification"
+                    return "Post Graduate"
+                except: return str(val)
+
+            def get_imd_label(val):
+                try:
+                    v = float(val)
+                    # IMD Bands are usually 0-10, 10-20, ..., 90-100
+                    # Based on -1.41 being 0-10
+                    if v < -1.3: return "0-10%"
+                    if v < -1.0: return "10-20%"
+                    if v < -0.7: return "20-30%"
+                    if v < -0.4: return "30-40%"
+                    if v < -0.1: return "40-50%"
+                    if v < 0.2: return "50-60%"
+                    if v < 0.5: return "60-70%"
+                    if v < 0.8: return "70-80%"
+                    if v < 1.1: return "80-90%"
+                    return "90-100%"
+                except: return str(val)
 
             return {
                 'id_student': int(student_id),
                 'risk_score': round(risk_score * 100, 1),
                 'risk_level': 'High' if risk_score >= 0.5 else 'Low',
-                'credits': int(row['studied_credits']) if 'studied_credits' in row else 0,
-                'clicks': int(row[interaction_col]) if interaction_col in row else 0,
-                'imd_band': row['imd_band'] if 'imd_band' in row else 'N/A',
+                'credits': float(row['studied_credits_original']) if 'studied_credits_original' in row else float(row.get('studied_credits', 0)),
+                'credits_label': get_credits_label(row.get('studied_credits_original', row.get('studied_credits', 0))),
+                'clicks': float(row['total_click_count_original']) if 'total_click_count_original' in row else float(row.get(interaction_col, 0)),
+                'clicks_label': get_interactions_label(row.get(interaction_col, 0)),
+                'imd_band': get_imd_label(row.get('imd_band', 'N/A')),
                 'disability': 'Yes' if ('disability' in row and row['disability'] == 1) else 'No',
                 'category': category,
-                'gender': row.get('gender', 'N/A'),
+                'gender': get_gender_label(row.get('gender', 'N/A')),
                 'region': row.get('region', 'N/A'),
-                'education': row.get('highest_education', 'N/A'),
-                'age': row.get('age_band', 'N/A'),
+                'education': get_edu_label(row.get('highest_education', 'N/A')),
+                'age': get_age_label(row.get('age_band', 'N/A')),
                 'avg_clicks': round(avg_clicks, 1),
-                'avg_credits': round(avg_credits, 1)
+                'avg_credits': round(avg_credits, 1),
+                'max_clicks': round(max_clicks, 1),
+                'max_credits': round(max_credits, 1),
+                'avg_clicks_pos': round(avg_clicks_pos, 1),
+                'avg_credits_pos': round(avg_credits_pos, 1),
+                'clicks_width': min(max((float(row['total_click_count_original']) / max_clicks) * 100, 0), 100) if max_clicks > 0 else 0,
+                'credits_width': min(max((float(row.get('studied_credits_original', 0)) / max_credits) * 100, 0), 100) if max_credits > 0 else 0
             }
         except Exception as e: return {'error': str(e)}

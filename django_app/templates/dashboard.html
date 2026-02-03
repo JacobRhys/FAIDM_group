@@ -32,7 +32,7 @@
     </div>
 
     <!-- Top Stats Row -->
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 animate-on-scroll delay-100">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 animate-on-scroll delay-100">
         <div
             class="glass-card p-6 rounded-2xl relative overflow-hidden group hover:-translate-y-1 transition-transform duration-300">
             <div
@@ -52,14 +52,6 @@
         <div
             class="glass-card p-6 rounded-2xl relative overflow-hidden group hover:-translate-y-1 transition-transform duration-300">
             <div
-                class="absolute -right-6 -top-6 w-24 h-24 bg-purple-500/10 rounded-full blur-xl group-hover:bg-purple-500/20 transition-colors">
-            </div>
-            <p class="text-sm text-purple-400 font-medium uppercase tracking-widest">F1 Score</p>
-            <p class="text-3xl font-bold text-white mt-2" id="f1-score">-</p>
-        </div>
-        <div
-            class="glass-card p-6 rounded-2xl relative overflow-hidden group hover:-translate-y-1 transition-transform duration-300">
-            <div
                 class="absolute -right-6 -top-6 w-24 h-24 bg-rose-500/10 rounded-full blur-xl group-hover:bg-rose-500/20 transition-colors">
             </div>
             <p class="text-sm text-rose-400 font-medium uppercase tracking-widest">At-Risk Rate</p>
@@ -67,58 +59,9 @@
         </div>
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <!-- Simulator Section -->
-        <div class="lg:col-span-1 space-y-6" id="simulator">
-            <div class="glass-card rounded-3xl p-6 h-full animate-on-scroll delay-200">
-                <div class="flex items-center justify-between mb-6">
-                    <h2 class="text-xl font-bold text-white">Risk Simulator</h2>
-                    <div class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-                </div>
-
-                <div class="space-y-6">
-                    <div>
-                        <label class="block text-sm font-medium text-slate-300 mb-2">Studied Credits</label>
-                        <input type="range" min="0" max="300" value="60"
-                            class="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-brand-500 hover:accent-brand-400 transition-colors"
-                            id="credits-input" oninput="updateVal('credits-val', this.value)">
-                        <div class="flex justify-between text-xs text-slate-500 mt-1">
-                            <span>0</span>
-                            <span id="credits-val" class="text-brand-400 font-bold">60</span>
-                            <span>300</span>
-                        </div>
-                    </div>
-
-                    <div>
-                        <label class="block text-sm font-medium text-slate-300 mb-2">Total Clicks</label>
-                        <input type="range" min="0" max="5000" value="1200"
-                            class="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-purple-500 hover:accent-purple-400 transition-colors"
-                            id="clicks-input" oninput="updateVal('clicks-val', this.value)">
-                        <div class="flex justify-between text-xs text-slate-500 mt-1">
-                            <span>0</span>
-                            <span id="clicks-val" class="text-purple-400 font-bold">1200</span>
-                            <span>5000</span>
-                        </div>
-                    </div>
-
-                    <button onclick="simulatePrediction()" id="calculate-risk-btn" disabled
-                        class="w-full mt-4 bg-slate-700 text-slate-400 cursor-not-allowed font-bold py-3 px-4 rounded-xl transition-all active:scale-95">
-                        Calculate Risk
-                    </button>
-
-                    <!-- Mini Gauge -->
-                    <div class="flex flex-col items-center justify-center pt-4">
-                        <span class="text-3xl font-bold text-white transition-all duration-500"
-                            id="score-display">--%</span>
-                        <span class="text-xs text-emerald-400 mt-1" id="status-display">Ready</span>
-
-                    </div>
-                </div>
-            </div>
-        </div>
-
+    <div class="grid grid-cols-1 gap-8">
         <!-- At Risk List -->
-        <div class="lg:col-span-2">
+        <div class="lg:col-span-1">
             <div class="glass-card rounded-3xl overflow-hidden h-full animate-on-scroll delay-300">
                 <div
                     class="p-6 border-b border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -264,7 +207,7 @@
             const row = document.createElement('tr');
             row.className = 'hover:bg-white/5 transition-colors group cursor-default';
 
-            const riskPercent = Math.round(student.risk_score * 100);
+            const riskPercent = Math.round(student.risk_score);
 
             row.innerHTML = `
                 <td class="px-6 py-4 text-white font-medium">${student.id_student}</td>
@@ -273,7 +216,7 @@
                         <div class="w-16 bg-slate-800 h-1.5 rounded-full overflow-hidden">
                             <div class="h-full bg-rose-500" style="width: ${riskPercent}%"></div>
                         </div>
-                        <span class="text-rose-400">${student.risk_score}</span>
+                        <span class="text-rose-400">${student.risk_score}%</span>
                     </div>
                 </td>
                 <td class="px-6 py-4 text-slate-300">${student.studied_credits}</td>
@@ -299,7 +242,6 @@
         document.getElementById('total-students').innerText = data.total_students.toLocaleString();
         document.getElementById('at-risk-rate').innerText = data.at_risk_rate + "%";
         document.getElementById('accuracy').innerText = data.accuracy !== null ? data.accuracy + "%" : "N/A";
-        document.getElementById('f1-score').innerText = data.f1_score !== null ? data.f1_score + "%" : "N/A";
 
         // Store data for dynamic rendering
         criticalStudentsData = data.critical_students || [];
@@ -314,108 +256,6 @@
         } else {
             tbody.innerHTML = `<tr><td colspan="5" class="px-6 py-8 text-center text-slate-500">No high risk students identified in this batch.</td></tr>`;
         }
-
-        // Enable simulator button
-        const calcBtn = document.getElementById('calculate-risk-btn');
-        if (calcBtn) {
-            calcBtn.disabled = false;
-            calcBtn.classList.remove('bg-slate-700', 'text-slate-400', 'cursor-not-allowed');
-            calcBtn.classList.add('bg-white', 'text-slate-900', 'hover:bg-slate-200');
-        }
-    }
-
-    function updateVal(id, val) {
-        document.getElementById(id).innerText = val;
-    }
-
-    async function simulatePrediction() {
-        const cachedData = sessionStorage.getItem('dashboardData');
-        if (!cachedData) {
-            alert('Please upload a CSV file first!');
-            return;
-        }
-
-        const credits = document.getElementById('credits-input').value;
-        const clicks = document.getElementById('clicks-input').value;
-        const button = document.querySelector('button[onclick="simulatePrediction()"]');
-        const scoreDisplay = document.getElementById('score-display');
-        const statusDisplay = document.getElementById('status-display');
-
-        // ... rest of simulation logic ...
-        button.innerText = 'Analyzing...';
-        button.classList.add('opacity-75', 'cursor-not-allowed');
-
-        const payload = {
-            'studied_credits': parseFloat(credits),
-            'total_click_sum': parseFloat(clicks),
-            'imd_band': 5,
-            'age_band': 3,
-        };
-
-        try {
-            const response = await fetch('/api/predict/', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-
-            const data = await response.json();
-
-            if (data.error) {
-                // Fallback for demo
-                const riskFactor = (300 - credits) / 300 * 0.4 + (5000 - clicks) / 5000 * 0.6;
-                const successProb = Math.floor((1 - riskFactor) * 100);
-                updateGauge(successProb);
-            } else {
-                const successProb = Math.floor((1 - data.risk_score) * 100);
-                updateGauge(successProb);
-            }
-
-        } catch (error) {
-            console.error('Error:', error);
-            // Even if the request fails completely (network error), use fallback
-            const riskFactor = (300 - credits) / 300 * 0.4 + (5000 - clicks) / 5000 * 0.6;
-            const successProb = Math.floor((1 - riskFactor) * 100);
-            updateGauge(successProb);
-        } finally {
-            button.innerText = 'Calculate Risk';
-            button.classList.remove('opacity-75', 'cursor-not-allowed');
-        }
-    }
-
-
-    // Store the calculated risk score for export
-    let calculatedRiskScore = 0;
-
-    function updateGauge(score) {
-        const scoreDisplay = document.getElementById('score-display');
-        const statusDisplay = document.getElementById('status-display');
-
-        // Store the risk score for export (note: score is success probability, we need risk)
-        calculatedRiskScore = 100 - score; // Convert success to risk
-
-        let current = 0;
-        const target = score;
-        const interval = setInterval(() => {
-            if (current >= target) clearInterval(interval);
-            else current += 2;
-            scoreDisplay.innerText = current + "%";
-        }, 10);
-
-        if (score < 50) {
-            statusDisplay.innerText = "Risk High";
-            statusDisplay.className = "text-xs text-rose-500 mt-1";
-            scoreDisplay.className = "text-3xl font-bold text-rose-500 transition-all duration-500";
-        } else if (score < 70) {
-            statusDisplay.innerText = "Risk Moderate";
-            statusDisplay.className = "text-xs text-orange-400 mt-1";
-            scoreDisplay.className = "text-3xl font-bold text-orange-400 transition-all duration-500";
-        } else {
-            statusDisplay.innerText = "Risk Low";
-            statusDisplay.className = "text-xs text-emerald-400 mt-1";
-            scoreDisplay.className = "text-3xl font-bold text-emerald-400 transition-all duration-500";
-        }
-
     }
 
     function exportPriorityList() {
