@@ -1,24 +1,31 @@
 import pandas as pd
 import numpy as np
-import os
 from sklearn.model_selection import train_test_split, cross_val_score
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score, confusion_matrix, classification_report, brier_score_loss
 from sklearn.calibration import CalibratedClassifierCV, calibration_curve
+from sklearn.impute import SimpleImputer
 from xgboost import XGBClassifier
-
-# Get the directory where this script is located
-script_dir = os.path.dirname(os.path.abspath(__file__))
-data_path = os.path.join(script_dir, '..', 'students_cleaned_with_id.csv')
+import joblib
+import os
 
 # Load data
-df = pd.read_csv(data_path)
+df = pd.read_csv('students_cleaned_with_id.csv')
+df.columns = [c.strip() for c in df.columns]
 
-# Drop date_unregistration 
-df = df.drop('date_unregistration', axis=1)
+# Drop date_unregistration if it exists
+if 'date_unregistration' in df.columns:
+    df = df.drop('date_unregistration', axis=1)
 
-# Handle missing values
-df['imd_band'] = df['imd_band'].fillna(df['imd_band'].median())
-df['age_band'] = df['age_band'].fillna(df['age_band'].median())
+# Handle missing values using SimpleImputer (so we can save it for the app)
+imputer = SimpleImputer(strategy='median')
+cols_to_impute = [col for col in ['imd_band', 'age_band'] if col in df.columns]
+if cols_to_impute:
+    # Coerce to numeric in case there are strings/spaces
+    df[cols_to_impute] = df[cols_to_impute].apply(pd.to_numeric, errors='coerce')
+    df[cols_to_impute] = imputer.fit_transform(df[cols_to_impute])
+else:
+    # Fallback if columns are missing
+    imputer.fit(df.select_dtypes(include=[np.number]).iloc[:, :2]) 
 
 # Separate features and target
 X = df.drop('final_result', axis=1)
@@ -131,15 +138,15 @@ best_method = min(calibration_scores, key=calibration_scores.get)
 if best_method == 'isotonic':
     y_pred_proba = y_pred_proba_isotonic
     calibrator = ir
-    print(f"\nBest calibration: Isotonic Regression (Brier: {brier_isotonic:.4f})")
+    print(f"\n✓ Best calibration: Isotonic Regression (Brier: {brier_isotonic:.4f})")
 elif best_method == 'sigmoid':
     y_pred_proba = y_pred_proba_sigmoid
     calibrator = lr
-    print(f"\nBest calibration: Sigmoid/Platt Scaling (Brier: {brier_sigmoid:.4f})")
+    print(f"\n✓ Best calibration: Sigmoid/Platt Scaling (Brier: {brier_sigmoid:.4f})")
 else:
     y_pred_proba = y_pred_proba_uncalib
     calibrator = None
-    print(f"\nBest: Uncalibrated model (Brier: {brier_uncalib:.4f})")
+    print(f"\n✓ Best: Uncalibrated model (Brier: {brier_uncalib:.4f})")
 
 # Calibration Curve Analysis
 print("\nCalibration Curve Analysis (10 bins):")
@@ -259,3 +266,24 @@ print("Actual at-risk students:", y_test.sum())
 print("Correctly identified:", cm[1,1])
 print("Missed:", cm[1,0])
 print("Intervention success rate:", round(cm[1,1]/y_test.sum()*100, 2), "%")
+
+
+# Save Model Artifacts
+print("\n" + "="*50)
+print("SAVING ARTIFACTS")
+print("="*50)
+
+artifacts = {
+    'model': xgb_model,
+    'imputer': imputer,
+    'calibrator': calibrator,
+    'best_threshold': best_threshold,
+    'scale_pos': scale_pos,
+    'best_calibration_method': best_method
+}
+
+# Create a clean filename
+artifact_filename = 'student_success_model.joblib'
+joblib.dump(artifacts, artifact_filename)
+print(f"Model artifacts saved to {artifact_filename}")
+print("You can now load this in your Django app using joblib.load()")

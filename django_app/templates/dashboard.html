@@ -1,0 +1,382 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-12">
+
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 animate-on-scroll">
+        <div>
+            <h1 class="text-3xl font-bold text-white">Performance Dashboard</h1>
+            <p class="text-slate-400 mt-1">Real-time overview of student success metrics.</p>
+        </div>
+
+        <div class="flex flex-col sm:flex-row gap-3">
+            <div class="flex items-center gap-2">
+                <input type="file" id="csv-upload" accept=".csv"
+                    class="file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-slate-800 file:text-white hover:file:bg-slate-700 text-slate-300 text-sm">
+                <button onclick="uploadCSV()"
+                    class="bg-brand-600 hover:bg-brand-500 text-white px-4 py-2 rounded-xl transition-all font-bold text-sm whitespace-nowrap">
+                    Analyze CSV
+                </button>
+            </div>
+
+ <a href="{% url 'search_student' %}" id="search-btn"
+                class="flex items-center justify-center gap-2 bg-slate-800 text-white px-5 py-2.5 rounded-xl transition-all border border-slate-700 opacity-50 cursor-not-allowed pointer-events-none">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                Search
+            </a> </div>
+    </div>
+
+    <!-- Top Stats Row -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 animate-on-scroll delay-100">
+        <div
+            class="glass-card p-6 rounded-2xl relative overflow-hidden group hover:-translate-y-1 transition-transform duration-300">
+            <div
+                class="absolute -right-6 -top-6 w-24 h-24 bg-brand-500/10 rounded-full blur-xl group-hover:bg-brand-500/20 transition-colors">
+            </div>
+            <p class="text-sm text-brand-400 font-medium uppercase tracking-widest">Total Students</p>
+            <p class="text-3xl font-bold text-white mt-2" id="total-students">-</p>
+        </div>
+        <div
+            class="glass-card p-6 rounded-2xl relative overflow-hidden group hover:-translate-y-1 transition-transform duration-300">
+            <div
+                class="absolute -right-6 -top-6 w-24 h-24 bg-rose-500/10 rounded-full blur-xl group-hover:bg-rose-500/20 transition-colors">
+            </div>
+            <p class="text-sm text-rose-400 font-medium uppercase tracking-widest">At-Risk Rate</p>
+            <p class="text-3xl font-bold text-white mt-2" id="at-risk-rate">-</p>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 gap-8">
+        <!-- At Risk List -->
+        <div class="lg:col-span-1">
+            <style>
+                .tooltip-trigger { position: relative; cursor: help; }
+                .tooltip-content {
+                    position: absolute;
+                    bottom: 125%;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    background: rgba(15, 23, 42, 0.95);
+                    border: 1px solid rgba(255, 255, 255, 0.1);
+                    padding: 0.75rem;
+                    border-radius: 0.75rem;
+                    width: 220px;
+                    font-size: 0.75rem;
+                    color: #cbd5e1;
+                    opacity: 0;
+                    visibility: hidden;
+                    transition: all 0.2s;
+                    z-index: 50;
+                    backdrop-filter: blur(8px);
+                    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4);
+                    pointer-events: none;
+                }
+                .tooltip-trigger:hover .tooltip-content { opacity: 1; visibility: visible; bottom: 110%; }
+                .tooltip-content b { color: white; display: block; margin-bottom: 2px; }
+            </style>
+            <div class="glass-card rounded-3xl overflow-hidden h-full animate-on-scroll delay-300">
+                <div
+                    class="p-6 border-b border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <h2 class="text-xl font-bold text-white">High Priority Attention</h2>
+                    <div class="flex items-center gap-4">
+                        <!-- Toggle -->
+                        <div class="flex bg-slate-800/50 p-1 rounded-xl border border-white/5">
+                            <button onclick="setPriorityLimit(10)" id="limit-10"
+                                class="px-3 py-1.5 rounded-lg text-xs font-bold transition-all bg-brand-600 text-white">Top
+                                10</button>
+                            <button onclick="setPriorityLimit(100)" id="limit-100"
+                                class="px-3 py-1.5 rounded-lg text-xs font-bold transition-all text-slate-400 hover:text-white">100</button>
+                            <button onclick="setPriorityLimit(250)" id="limit-250"
+                                class="px-3 py-1.5 rounded-lg text-xs font-bold transition-all text-slate-400 hover:text-white">250</button>
+                        </div>
+
+                        <button onclick="exportPriorityList()" id="export-priority-btn"
+                            class="text-xs bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 rounded-xl border border-white/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-bold"
+                            disabled>
+                            Export
+                        </button>
+                    </div>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left">
+                        <thead class="bg-white/5 text-xs uppercase text-slate-400">
+                            <tr>
+                                <th class="px-6 py-4 font-medium">Student ID</th>
+                                <th class="px-6 py-4 font-medium">Risk Score</th>
+                                <th class="px-6 py-4 font-medium">
+                                    <div class="tooltip-trigger flex items-center gap-1">
+                                        Credits
+                                        <svg class="w-3.5 h-3.5 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                        <div class="tooltip-content normal-case font-normal text-left">
+                                            <b>Credit Load Levels:</b>
+                                            • Standard: 60-120 Credits<br>
+                                            • Below Average: < 60 Credits<br>
+                                            • Above Average: > 120 Credits
+                                        </div>
+                                    </div>
+                                </th>
+                                <th class="px-6 py-4 font-medium text-center">Disability</th>
+                                <th class="px-6 py-4 font-medium">
+                                    <div class="tooltip-trigger flex items-center justify-center gap-1">
+                                        Category
+                                        <svg class="w-3.5 h-3.5 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                        <div class="tooltip-content normal-case font-normal text-left">
+                                            <b>Student Profiles:</b>
+                                            • <b>Star Student:</b> High engagement & performance<br>
+                                            • <b>Struggling:</b> High engagement, low performance<br>
+                                            • <b>Ghost Achiever:</b> Low engagement, high performance<br>
+                                            • <b>Disengaged:</b> Low engagement & performance
+                                        </div>
+                                    </div>
+                                </th>
+                                <th class="px-6 py-4 font-medium">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="students-table-body" class="divide-y divide-white/5 text-sm">
+                            <tr>
+                                <td colspan="6" class="px-6 py-8 text-center text-slate-500">
+                                    Please upload a CSV to view high priority students.
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // On page load, conditionally restore dashboard data
+    window.addEventListener('DOMContentLoaded', function () {
+        const navEntries = performance.getEntriesByType('navigation');
+        const isBackNavigation = navEntries.length > 0 && navEntries[0].type === 'back_forward';
+
+        if (isBackNavigation) {
+            const cachedData = sessionStorage.getItem('dashboardData');
+            if (cachedData) {
+                console.log('Restoring dashboard data (back navigation)');
+                const data = JSON.parse(cachedData);
+                updateDashboard(data);
+                enableSearchButton();
+            } else {
+                disableSearchButton();
+            }
+        } else {
+            // Reset dashboard data for fresh navigation or refresh
+            console.log('Resetting dashboard data for new session');
+            sessionStorage.removeItem('dashboardData');
+            disableSearchButton();
+            // Dashboard values will be empty by default as provided in the HTML
+        }
+    });
+    async function uploadCSV() {
+        const fileInput = document.getElementById('csv-upload');
+        const file = fileInput.files[0];
+        if (!file) {
+            alert("Please select a CSV file first.");
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const btn = document.querySelector('button[onclick="uploadCSV()"]');
+        const originalText = btn.innerText;
+        btn.innerText = "Analyzing...";
+        btn.disabled = true;
+
+        try {
+            const response = await fetch('/api/analyze_csv/', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await response.json();
+
+            if (data.error) {
+                alert("Error: " + data.error);
+                return;
+            }
+
+
+            // Save to sessionStorage for persistence across navigation
+            sessionStorage.setItem('dashboardData', JSON.stringify(data));
+
+            // Update the dashboard UI
+            updateDashboard(data);
+            
+            // Enable search button after successful upload
+            enableSearchButton();
+
+        } catch (e) {
+            console.error(e);
+            alert("Failed to upload/analyze: " + e);
+        } finally {
+            btn.innerText = originalText;
+            btn.disabled = false;
+        }
+    }
+
+    let activeLimit = 10;
+    let criticalStudentsData = [];
+
+    function setPriorityLimit(limit) {
+        activeLimit = limit;
+
+        // Update UI states
+        [10, 100, 250].forEach(l => {
+            const btn = document.getElementById(`limit-${l}`);
+            if (l === limit) {
+                btn.classList.add('bg-brand-600', 'text-white');
+                btn.classList.remove('text-slate-400', 'hover:text-white');
+            } else {
+                btn.classList.remove('bg-brand-600', 'text-white');
+                btn.classList.add('text-slate-400', 'hover:text-white');
+            }
+        });
+
+        renderCriticalTable();
+    }
+
+    function renderCriticalTable() {
+        const tbody = document.getElementById('students-table-body');
+        if (!criticalStudentsData || criticalStudentsData.length === 0) return;
+
+        tbody.innerHTML = '';
+        const displayList = criticalStudentsData.slice(0, activeLimit);
+
+        displayList.forEach((student) => {
+            const row = document.createElement('tr');
+            row.className = 'hover:bg-white/5 transition-colors group cursor-default';
+
+            const riskPercent = Math.round(student.risk_score);
+
+            const categoryInfo = {
+                'Star Student': 'High engagement and high academic performance.',
+                'Struggling': 'High engagement but struggling to maintain academic baseline.',
+                'Ghost Achiever': 'Low engagement but maintaining high academic results.',
+                'Disengaged': 'Low engagement and low academic performance.'
+            };
+
+            const creditInfo = {
+                'Standard': 'Average student credit load of 60-120 credits.',
+                'Below Average': 'Student is taking less than 60 total credits.',
+                'Above Average': 'Student is taking more than 120 total credits.'
+            };
+
+            row.innerHTML = `
+                <td class="px-6 py-4 text-white font-medium">${student.id_student}</td>
+                <td class="px-6 py-4">
+                    <div class="flex items-center gap-2">
+                        <div class="w-16 bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                            <div class="h-full bg-rose-500" style="width: ${riskPercent}%"></div>
+                        </div>
+                        <span class="text-rose-400">${student.risk_score}%</span>
+                    </div>
+                </td>
+                <td class="px-6 py-4 text-slate-300">
+                    <div class="tooltip-trigger">
+                        ${student.studied_credits}
+                        <div class="tooltip-content">
+                            <b>${student.studied_credits}</b>
+                            ${creditInfo[student.studied_credits] || ''}
+                        </div>
+                    </div>
+                </td>
+                <td class="px-6 py-4 text-slate-300 text-center">${student.disability}</td>
+                <td class="px-6 py-4 text-center">
+                    <div class="tooltip-trigger inline-block">
+                        <span class="px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider ${student.category === 'Star Student' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/20' :
+                        student.category === 'Struggling' ? 'bg-orange-500/20 text-orange-400 border border-orange-500/20' :
+                            student.category === 'Ghost Achiever' ? 'bg-purple-500/20 text-purple-400 border border-purple-500/20' :
+                                'bg-rose-500/20 text-rose-400 border border-rose-500/20'
+                    }">${student.category}</span>
+                        <div class="tooltip-content normal-case">
+                            <b>${student.category}</b>
+                            ${categoryInfo[student.category] || ''}
+                        </div>
+                    </div>
+                </td>
+                <td class="px-6 py-4">
+                    <a href="/search/?student_id=${student.id_student}"
+                        class="text-brand-400 hover:text-brand-300 text-xs font-semibold opacity-0 group-hover:opacity-100 transition-opacity">View Profile &rarr;</a>
+                </td>
+            `;
+            tbody.appendChild(row);
+        });
+    }
+
+    function updateDashboard(data) {
+        // Update metrics
+        document.getElementById('total-students').innerText = data.total_students.toLocaleString();
+        document.getElementById('at-risk-rate').innerText = data.at_risk_rate + "%";
+
+        // Store data for dynamic rendering
+        criticalStudentsData = data.critical_students || [];
+
+        const tbody = document.getElementById('students-table-body');
+        if (criticalStudentsData.length > 0) {
+            // Enable export button
+            const exportBtn = document.getElementById('export-priority-btn');
+            if (exportBtn) exportBtn.disabled = false;
+
+            renderCriticalTable();
+        } else {
+            tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-8 text-center text-slate-500">No high risk students identified in this batch.</td></tr>`;
+        }
+    }
+
+    function exportPriorityList() {
+        if (!criticalStudentsData || criticalStudentsData.length === 0) {
+            alert('No student data available to export.');
+            return;
+        }
+
+        const subset = criticalStudentsData.slice(0, activeLimit);
+        downloadCSV(subset, `top_${activeLimit}_critical_students.csv`);
+    }
+
+    function downloadCSV(students, filename) {
+        // Generate CSV
+        const csvHeaders = 'Student ID,Risk Score,Studied Credits,Disability,Category\n';
+        const csvRows = students.map(student => {
+            return `${student.id_student},${student.risk_score},${student.studied_credits},${student.disability},${student.category}`;
+        }).join('\n');
+
+        const csvContent = csvHeaders + csvRows;
+
+        // Create download link
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+
+        link.setAttribute('href', url);
+        link.setAttribute('download', filename);
+        link.style.visibility = 'hidden';
+
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
+    function enableSearchButton() {
+        const searchBtn = document.getElementById('search-btn');
+        if (searchBtn) {
+            searchBtn.classList.remove('opacity-50', 'cursor-not-allowed', 'pointer-events-none');
+            searchBtn.classList.add('hover:bg-slate-700');
+        }
+    }
+
+    function disableSearchButton() {
+        const searchBtn = document.getElementById('search-btn');
+        if (searchBtn) {
+            searchBtn.classList.add('opacity-50', 'cursor-not-allowed', 'pointer-events-none');
+            searchBtn.classList.remove('hover:bg-slate-700');
+        }
+    }
+</script>
+{% endblock %}
